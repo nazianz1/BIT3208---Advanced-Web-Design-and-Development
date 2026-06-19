@@ -1,6 +1,6 @@
 <?php
 session_start();
-require '../Week3/config.php';
+require_once __DIR__ . '/config.php';
 
 // Check if user is logged in
 if (!isset($_SESSION['user_id'])) {
@@ -12,7 +12,7 @@ $message = '';
 
 // Handle Product Deletion
 if (isset($_GET['delete'])) {
-    if ($_SESSION['role'] !== 'admin') {
+    if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
         $message = "❌ Only administrators can delete products!";
     } else {
         $delete_id = (int)$_GET['delete'];

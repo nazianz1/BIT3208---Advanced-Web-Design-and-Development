@@ -1,54 +1,43 @@
 <?php
 session_start();
-require '../Week3/config.php';
+require_once __DIR__ . '/config.php';
 
-// 1. Fix redirect path to Week3 login if not authorized
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
-    header("Location: ../Week3/login.php"); 
+// Check if user is logged in and is an admin
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
+    header("Location: ../Week3/login.php");
     exit;
 }
 
 $message = '';
 $edit_product = null;
 
-// 2. Fetch all categories dynamically so the dropdown functions perfectly
-$categories = [];
-$cat_query = "SELECT * FROM categories";
-$cat_result = mysqli_query($conn, $cat_query);
-if ($cat_result) {
-    while ($row = mysqli_fetch_assoc($cat_result)) {
-        $categories[] = $row;
-    }
-}
-
-// 3. Handle Fetching Product for Editing
+// If we are in EDIT mode, fetch the existing product details (MySQLi style)
 if (isset($_GET['edit'])) {
-    $edit_id = (int)$_GET['edit'];
-    $edit_query = "SELECT * FROM products WHERE id = $edit_id";
+    $product_id = (int)$_GET['edit'];
+    $edit_query = "SELECT * FROM products WHERE id = $product_id";
     $edit_result = mysqli_query($conn, $edit_query);
     if ($edit_result && mysqli_num_rows($edit_result) > 0) {
         $edit_product = mysqli_fetch_assoc($edit_result);
     }
 }
 
-// 4. Handle Form Submission (Add or Update Product)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = mysqli_real_escape_string($conn, trim($_POST['name']));
     $description = mysqli_real_escape_string($conn, trim($_POST['description']));
     $price = (float)$_POST['price'];
     $category_id = (int)$_POST['category_id'];
-    $image = isset($_POST['image']) ? mysqli_real_escape_string($conn, $_POST['image']) : 'default.jpg';
+    $image = 'default.jpg'; // Default value
 
     if (empty($name) || empty($description)) {
         $message = "❌ Please fill in all fields!";
     } else {
         if (!empty($_POST['product_id'])) {
-            // UPDATE Existing Product
+            // UPDATE Product functionality
             $product_id = (int)$_POST['product_id'];
             $update_query = "UPDATE products SET name='$name', description='$description', price=$price, category_id=$category_id WHERE id=$product_id";
             if (mysqli_query($conn, $update_query)) {
                 $message = "✅ Product updated successfully!";
-                // Refresh data in memory
+                // Refresh data
                 $edit_product['name'] = $name;
                 $edit_product['description'] = $description;
                 $edit_product['price'] = $price;
@@ -57,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $message = "❌ Error updating product: " . mysqli_error($conn);
             }
         } else {
-            // INSERT New Product
+            // INSERT Product functionality (CREATE)
             $insert_query = "INSERT INTO products (name, description, price, image, category_id) VALUES ('$name', '$description', $price, '$image', $category_id)";
             if (mysqli_query($conn, $insert_query)) {
                 $message = "✅ Product added successfully!";
@@ -67,14 +56,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+
+// Fetch all categories for the dropdown selector
+$categories = [];
+$cat_query = "SELECT * FROM categories ORDER BY name ASC";
+$cat_result = mysqli_query($conn, $cat_query);
+if ($cat_result) {
+    while ($row = mysqli_fetch_assoc($cat_result)) {
+        $categories[] = $row;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $edit_product ? 'Edit Product' : 'Add Product' ?> - ShopEase</title>
+    <title>Admin Dashboard - ShopEase</title>
     <link rel="stylesheet" href="../week2/css/style.css">
+    <style>
+        .admin-container { max-width: 600px; margin: 40px auto; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); font-family: Arial, sans-serif; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .btn-submit { background-color: #1a73e8; color: white; border: none; padding: 12px; width: 100%; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 16px; }
+        .btn-submit:hover { background-color: #1557b0; }
+        .alert { padding: 12px; margin-bottom: 20px; border-radius: 4px; font-weight: bold; text-align: center; }
+    </style>
 </head>
 <body>
 
@@ -82,62 +90,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <a href="../week2/index.php" class="logo">🛒 ShopEase</a>
     <nav>
         <a href="products.php">View Products</a>
+        <a href="admin.php">Add Product</a>
         <a href="../Week3/login.php">Logout</a>
     </nav>
 </div>
 
-<div class="form-container" style="max-width:550px; margin: 40px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
-    <h2><?= $edit_product ? 'Edit Product' : 'Add New Product' ?></h2>
+<div class="admin-container">
+    <h2><?= $edit_product ? '✏️ Edit Product' : '➕ Add New Product' ?></h2>
 
     <?php if ($message): ?>
-        <div style="padding: 10px; margin-bottom: 15px; border-radius: 4px; background-color: #e8f5e9; color: #2e7d32; text-align: center; font-weight: bold;">
-            <?= htmlspecialchars($message) ?>
+        <div class="alert" style="background-color: <?= strpos($message, '✅') !== false ? '#e8f5e9' : '#ffebee' ?>; color: <?= strpos($message, '✅') !== false ? '#2e7d32' : '#c62828' ?>;">
+            <?= $message ?>
         </div>
     <?php endif; ?>
 
-    <form method="POST" action="admin.php">
-        <input type="hidden" name="product_id" value="<?= $edit_product['id'] ?? '' ?>">
+    <form action="admin.php<?= $edit_product ? '?edit=' . $edit_product['id'] : '' ?>" method="POST">
+        <?php if ($edit_product): ?>
+            <input type="hidden" name="product_id" value="<?= $edit_product['id'] ?>">
+        <?php endif; ?>
 
-        <div class="form-group" style="margin-bottom: 15px;">
-            <label style="display:block; margin-bottom: 5px; font-weight: bold;">Product Name</label>
-            <input type="text" name="name" required maxlength="150" style="width:100%; padding: 8px; box-sizing: border-box;"
-                   value="<?= htmlspecialchars($edit_product['name'] ?? $_POST['name'] ?? '') ?>"
-                   placeholder="e.g. Wireless Headphones">
+        <div class="form-group">
+            <label>Product Name</label>
+            <input type="text" name="name" value="<?= htmlspecialchars($edit_product['name'] ?? '') ?>" placeholder="e.g. Wireless Headphones" required>
         </div>
 
-        <div class="form-group" style="margin-bottom: 15px;">
-            <label style="display:block; margin-bottom: 5px; font-weight: bold;">Description</label>
-            <input type="text" name="description" required maxlength="255" style="width:100%; padding: 8px; box-sizing: border-box;"
-                   value="<?= htmlspecialchars($edit_product['description'] ?? $_POST['description'] ?? '') ?>"
-                   placeholder="Short product description">
+        <div class="form-group">
+            <label>Description</label>
+            <textarea name="description" rows="4" placeholder="Describe the item features..." required><?= htmlspecialchars($edit_product['description'] ?? '') ?></textarea>
         </div>
 
-        <div class="form-group" style="margin-bottom: 15px;">
-            <label style="display:block; margin-bottom: 5px; font-weight: bold;">Price (KSh)</label>
-            <input type="number" name="price" required min="0.01" step="0.01" style="width:100%; padding: 8px; box-sizing: border-box;"
-                   value="<?= htmlspecialchars($edit_product['price'] ?? $_POST['price'] ?? '') ?>"
-                   placeholder="e.g. 3500">
+        <div class="form-group">
+            <label>Price (KSh)</label>
+            <input type="number" step="0.01" name="price" value="<?= htmlspecialchars($edit_product['price'] ?? '') ?>" placeholder="e.g. 3500" required>
         </div>
 
-        <div class="form-group" style="margin-bottom: 20px;">
-            <label style="display:block; margin-bottom: 5px; font-weight: bold;">Category</label>
-            <select name="category_id" required style="width:100%; padding: 8px; box-sizing: border-box;">
-                <option value="">Select Category</option>
-                <?php foreach ($categories as $cat): 
-                    $selected = (isset($edit_product) && $edit_product['category_id'] == $cat['id']) ? 'selected' : '';
-                ?>
-                    <option value="<?= $cat['id'] ?>" <?= $selected ?>><?= htmlspecialchars($cat['name']) ?></option>
+        <div class="form-group">
+            <label>Category</label>
+            <select name="category_id" required>
+                <option value="">-- Select Category --</option>
+                <?php foreach ($categories as $cat): ?>
+                    <option value="<?= $cat['id'] ?>" <?= (isset($edit_product['category_id']) && $edit_product['category_id'] == $cat['id']) ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($cat['name']) ?>
+                    </option>
                 <?php endforeach; ?>
             </select>
         </div>
 
-        <button type="submit" style="width: 100%; padding: 10px; background-color: #1a73e8; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">
-            <?= $edit_product ? 'Update Product' : 'Add Product' ?>
-        </button>
-
-        <?php if ($edit_product): ?>
-            <a href="admin.php" style="margin-top:10px; display:block; text-align:center; color: #5f6368; text-decoration: none;">Cancel Edit</a>
-        <?php endif; ?>
+        <button type="submit" class="btn-submit"><?= $edit_product ? 'Update Product Details' : 'Save Product to Catalog' ?></button>
     </form>
 </div>
 

@@ -1,6 +1,6 @@
 <?php
 session_start();
-require "db.php";
+require_once __DIR__ . '/config.php';
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php"); exit;
@@ -10,13 +10,24 @@ $user_id   = $_SESSION['user_id'];
 $user_name = $_SESSION['user_name'];
 $user_role = $_SESSION['user_role'];
 
-$products = $pdo->query(
+$products = [];
+$product_result = mysqli_query(
+    $conn,
     "SELECT p.*, c.name AS category FROM products p JOIN categories c ON p.category_id = c.id ORDER BY p.created_at DESC"
-)->fetchAll();
+);
+
+if ($product_result) {
+    while ($row = mysqli_fetch_assoc($product_result)) {
+        $products[] = $row;
+    }
+}
 
 $total_products = count($products);
-$total_users    = $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
-$total_cats     = $pdo->query("SELECT COUNT(*) FROM categories")->fetchColumn();
+$total_users_result = mysqli_query($conn, "SELECT COUNT(*) AS total FROM users");
+$total_cats_result = mysqli_query($conn, "SELECT COUNT(*) AS total FROM categories");
+
+$total_users = $total_users_result ? (int) (mysqli_fetch_assoc($total_users_result)['total'] ?? 0) : 0;
+$total_cats = $total_cats_result ? (int) (mysqli_fetch_assoc($total_cats_result)['total'] ?? 0) : 0;
 ?>
 <!DOCTYPE html>
 <html lang="en">
