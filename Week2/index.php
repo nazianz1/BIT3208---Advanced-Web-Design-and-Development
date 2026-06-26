@@ -1,5 +1,15 @@
 <?php
-require_once 'config.php';
+session_start();
+$host = "localhost";
+$username = "root";
+$password_db = "";
+$database = "ecommerce_db";
+
+$conn = mysqli_connect($host, $username, $password_db, $database);
+
+if (!$conn) {
+    die("Connection Failed: " . mysqli_connect_error());
+}
 
 $result = mysqli_query($conn, "SELECT * FROM products LIMIT 6");
 ?>
@@ -19,8 +29,19 @@ $result = mysqli_query($conn, "SELECT * FROM products LIMIT 6");
     <a href="index.php" class="logo">🛒 ShopEase</a>
     <nav>
         <a href="index.php">Home</a>
-        <a href="../week3/login.php">Login</a>
-        <a href="../week3/register.php">Register</a>
+        <?php if(isset($_SESSION['user_id']) && isset($_SESSION['user_role'])): ?>
+            <span style="color:white; margin-left:20px;">👋 Welcome, <?php echo htmlspecialchars($_SESSION['user_name'] ?? ''); ?>!</span>
+            <?php if(in_array($_SESSION['user_role'], ['superuser','manager'])): ?>
+            <a href="../Week5/products.php">Manage Products</a>
+            <?php endif; ?>
+            <?php if($_SESSION['user_role'] === 'superuser'): ?>
+            <a href="../Week7/manage_users.php">Manage Users</a>
+            <?php endif; ?>
+            <a href="../Week4/logout.php" style="background:white; color:#1a73e8; padding:6px 16px; border-radius:20px; font-weight:600; margin-left:15px;">Logout</a>
+        <?php else: ?>
+            <a href="../Week3/login.php">Login</a>
+            <a href="../Week3/register.php">Register</a>
+        <?php endif; ?>
     </nav>
 </div>
 
@@ -41,16 +62,16 @@ $result = mysqli_query($conn, "SELECT * FROM products LIMIT 6");
             <span style="font-size:60px;">
                 <?php
                     $icons = ['Electronics'=>'📱','Clothing'=>'👕','Home & Kitchen'=>'🏠'];
-                    $cat = mysqli_fetch_assoc(mysqli_query($conn, "SELECT name FROM categories WHERE id=".$product['category_id']));
+                    $cat = mysqli_fetch_assoc(mysqli_query($conn, "SELECT name FROM categories WHERE id=".(int)$product['category_id']));
                     echo $icons[$cat['name']] ?? '🛍️';
                 ?>
             </span>
         </div>
         <div class="card-body">
-            <h3><?php echo $product['name']; ?></h3>
-            <p class="description"><?php echo $product['description']; ?></p>
+            <h3><?php echo htmlspecialchars($product['name']); ?></h3>
+            <p class="description"><?php echo htmlspecialchars($product['description']); ?></p>
             <p class="price">KSh <?php echo number_format($product['price'], 2); ?></p>
-            <a href="../week3/login.php" class="btn btn-primary">Add to Cart</a>
+            <a href="../Week3/login.php" class="btn btn-primary">Add to Cart</a>
         </div>
     </div>
     <?php endwhile; ?>

@@ -2,10 +2,9 @@
 session_start();
 require_once __DIR__ . '/config.php';
 
-// Check if user is logged in and is an admin
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['user_role'], ['superuser','manager'])) {
     header("Location: ../Week3/login.php");
-    exit;
+    exit();
 }
 
 $message = '';
